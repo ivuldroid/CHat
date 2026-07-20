@@ -1,14 +1,16 @@
 // ============================================================================
-// CHAT.JS — logic utama aplikasi (chat.html)
+// CHAT.JS — logic utama aplikasi (chat.html) — BERBASIS IMGBB API (GRATIS)
 // ============================================================================
 
-import { auth, db, storage } from "./firebase-config.js";
+import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import {
   collection, query, where, orderBy, onSnapshot, addDoc, doc, getDoc,
   getDocs, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-storage.js";
+
+// KONFIGURASI API KEY IMGBB MILIKMU
+const IMGBB_API_KEY = "Dfcd1eb93f893fda8d65fe76559601e0";
 
 const AVATAR_COLORS = ["#1FA855", "#0B4F4A", "#146B5E", "#C77C3B", "#4A6FA5", "#A0555C", "#6B4C9A", "#B08B2E"];
 
@@ -80,6 +82,25 @@ function showModalError(id, msg) {
 
 function hideModalError(id) {
   document.getElementById(id).classList.remove("show");
+}
+
+// FUNGSI PROSES UPLOAD GAMBAR KE IMGBB
+async function uploadKeImgBB(file) {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: "POST",
+    body: formData
+  });
+
+  const hasil = await response.json();
+  
+  if (hasil.success) {
+    return hasil.data.url; // Mengembalikan link gambar fisik (.jpg/.png)
+  } else {
+    throw new Error(hasil.error ? hasil.error.message : "Gagal upload ke ImgBB");
+  }
 }
 
 // ============================================================================
@@ -257,6 +278,7 @@ document.getElementById("photoBtn").addEventListener("click", () => {
   document.getElementById("photoInput").click();
 });
 
+// LOGIC UPDATE: PROSES SEKARANG MEMAKAI IMGBB (100% NO COST)
 document.getElementById("photoInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = "";
@@ -265,15 +287,15 @@ document.getElementById("photoInput").addEventListener("change", async (e) => {
     alert("Ukuran foto maksimal 5MB.");
     return;
   }
+  
   try {
-    const path = `chat_images/${currentChatId}/${Date.now()}_${file.name}`;
-    const fileRef = ref(storage, path);
-    await uploadBytes(fileRef, file);
-    const url = await getDownloadURL(fileRef);
+    // 1. Upload ke ImgBB, dapatkan URL teks-nya
+    const url = await uploadKeImgBB(file);
+    // 2. Dorong datanya ke Firestore chat messages seperti biasa
     await pushMessage({ imageUrl: url });
   } catch (err) {
-    console.error("Gagal upload foto:", err);
-    alert("Gagal mengirim foto. Coba lagi.");
+    console.error("Gagal upload foto ke ImgBB:", err);
+    alert("Gagal mengirim foto: " + err.message);
   }
 });
 
