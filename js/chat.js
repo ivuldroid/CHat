@@ -232,7 +232,7 @@ function renderMessages(msgs) {
     row.innerHTML = `
       <div class="bubble ${isOut ? "out" : "in"}">
         ${showSender ? `<div class="sender">${escapeHtml(m.senderName || "")}</div>` : ""}
-        ${m.imageUrl ? `<img src="${m.imageUrl}" alt="Foto" data-full="${m.imageUrl}">` : ""}
+        ${m.imageUrl ? `<img src="${m.imageUrl}" alt="Foto" data-full="${m.imageUrl}" style="max-width: 100%; width: 200px; max-height: 250px; border-radius: 8px; margin-bottom: 5px; display: block; object-fit: cover;">` : ""}
         ${m.text ? `<div class="txt">${escapeHtml(m.text)}</div>` : ""}
         <div class="time">${m.timestamp ? formatTime(m.timestamp) : "Mengirim..."}</div>
       </div>
