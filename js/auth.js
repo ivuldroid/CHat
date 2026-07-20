@@ -114,10 +114,15 @@ registerForm.addEventListener("submit", async (e) => {
       email: email.toLowerCase(),
       createdAt: serverTimestamp()
     });
+    
+alert("Data user berhasil disimpan ke Firestore");
+window.location.href = "chat.html";
     // onAuthStateChanged akan handle redirect
   } catch (err) {
-    showError(terjemahkanError(err));
-    submitBtn.disabled = false;
-    submitBtn.textContent = "Buat akun";
+  console.error(err);
+  alert(err.code + "\n" + err.message);
+  showError(terjemahkanError(err));
+  submitBtn.disabled = false;
+  submitBtn.textContent = "Buat akun";
   }
 });
