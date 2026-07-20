@@ -21,9 +21,15 @@ const loginForm = document.getElementById("loginForm");
 const registerForm = document.getElementById("registerForm");
 const authError = document.getElementById("authError");
 
+// Flag untuk mengunci redirect otomatis saat form sedang diproses
+let sedangProsesForm = false;
+
 // ---------- kalau sudah login, langsung lempar ke chat.html ----------
 onAuthStateChanged(auth, (user) => {
-  if (user) window.location.href = "chat.html";
+  // Hanya pindah otomatis jika browser TIDAK sedang memproses form submit
+  if (user && !sedangProsesForm) {
+    window.location.href = "chat.html";
+  }
 });
 
 // ---------- toggle tab login / daftar ----------
@@ -82,9 +88,11 @@ loginForm.addEventListener("submit", async (e) => {
   const password = document.getElementById("loginPassword").value;
 
   try {
+    sedangProsesForm = true; // Kunci redirect otomatis
     await signInWithEmailAndPassword(auth, email, password);
-    // onAuthStateChanged di atas akan handle redirect
+    window.location.href = "chat.html"; // Pindah manual setelah benar-benar sukses login
   } catch (err) {
+    sedangProsesForm = false; // Buka kembali kunci jika gagal
     showError(terjemahkanError(err));
     submitBtn.disabled = false;
     submitBtn.textContent = "Masuk";
@@ -104,18 +112,21 @@ registerForm.addEventListener("submit", async (e) => {
   const password = document.getElementById("regPassword").value;
 
   try {
+    sedangProsesForm = true; // Kunci redirect otomatis agar tidak langsung lompat ke chat.html
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name });
 
-    // simpan dokumen user di Firestore supaya bisa dicari via email nantinya
+    // Sekarang kode di bawah ini dijamin bakal dieksekusi sampai selesai
     await setDoc(doc(db, "users", cred.user.uid), {
       uid: cred.user.uid,
       displayName: name,
       email: email.toLowerCase(),
       createdAt: serverTimestamp()
     });
-    // onAuthStateChanged akan handle redirect
+    
+    window.location.href = "chat.html"; // Baru pindah halaman setelah Firestore selesai ditulis!
   } catch (err) {
+    sedangProsesForm = false; // Buka kembali kunci jika gagal biar bisa coba lagi
     showError(terjemahkanError(err));
     submitBtn.disabled = false;
     submitBtn.textContent = "Buat akun";
