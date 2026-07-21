@@ -199,7 +199,8 @@ input:focus-visible,
    ========================================================================== */
 
 .app-shell {
-  height: 100dvh; /* ✅ Gunakan 100dvh agar otomatis menyesuaikan saat keyboard muncul */
+  position: fixed;
+  inset: 0;
   display: grid;
   grid-template-columns: 1fr;
   background: var(--white);
