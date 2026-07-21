@@ -199,7 +199,8 @@ input:focus-visible,
    ========================================================================== */
 
 .app-shell {
-  height: 100dvh; /* ✅ Diperbarui pakai dvh agar aman dari navibar Android */
+  position: fixed;
+  inset: 0;
   display: grid;
   grid-template-columns: 380px 1fr;
   background: var(--white);
