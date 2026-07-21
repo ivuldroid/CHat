@@ -117,30 +117,29 @@
   </div>
 </div>
 
-<script type="module" src="js/chat.js"></script>
- <script>
-  // Solusi khusus APK HTML-to-APK agar tidak tertutup keyboard
-  if (window.visualViewport) {
-    const appShell = document.querySelector('.app-shell');
-    
-    function handleKeyboardResize() {
-      if (appShell) {
-        // Paksakan tinggi dan posisi app-shell mengikuti area yang terlihat saja
-        appShell.style.position = 'fixed';
-        appShell.style.height = window.visualViewport.height + 'px';
-        appShell.style.top = window.visualViewport.offsetTop + 'px';
-        appShell.style.left = '0';
-        appShell.style.right = '0';
-      }
-    }
+<script>
+  // Solusi khusus APK HTML-to-APK (adjustPan)
+  const messageInput = document.getElementById('messageInput');
+  const messagesContainer = document.getElementById('messages');
 
-    window.visualViewport.addEventListener('resize', handleKeyboardResize);
-    window.visualViewport.addEventListener('scroll', handleKeyboardResize);
-    
-    // Jalankan sekali saat pertama load
-    handleKeyboardResize();
+  if (messageInput && messagesContainer) {
+    messageInput.addEventListener('focus', () => {
+      // Beri ruang kosong (padding) di bawah sebesar perkiraan tinggi keyboard
+      setTimeout(() => {
+        messagesContainer.style.paddingBottom = '280px';
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }, 300); // Delay sedikit agar animasi keyboard selesai muncul
+    });
+
+    messageInput.addEventListener('blur', () => {
+      // Kembalikan normal saat keyboard ditutup
+      setTimeout(() => {
+        messagesContainer.style.paddingBottom = '10px';
+      }, 100);
+    });
   }
 </script>
+
  
 </body>
 </html>
