@@ -1,5 +1,5 @@
 // ============================================================================
-// CHAT.JS — logic utama aplikasi (chat.html) — BERBASIS IMGBB API (GRATIS)
+// CHAT.JS — logic utama aplikasi (chat.html) — BASE64 COMPRESSION (100% GRATIS)
 // ============================================================================
 
 import { auth, db } from "./firebase-config.js";
@@ -9,9 +9,6 @@ import {
   getDocs, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
-// KONFIGURASI API KEY IMGBB MILIKMU
-const IMGBB_API_KEY = "Dfcd1eb93f893fda8d65fe76559601e0";
-
 const AVATAR_COLORS = ["#1FA855", "#0B4F4A", "#146B5E", "#C77C3B", "#4A6FA5", "#A0555C", "#6B4C9A", "#B08B2E"];
 
 let currentUser = null;
@@ -19,7 +16,7 @@ let currentChatId = null;
 let currentChatData = null;
 let unsubMessages = null;
 let allChatsCache = [];
-let groupMembers = []; // { uid, name, email } dipilih saat bikin grup baru
+let groupMembers = [];
 
 // ============================================================================
 // HELPERS
@@ -84,23 +81,33 @@ function hideModalError(id) {
   document.getElementById(id).classList.remove("show");
 }
 
-// FUNGSI PROSES UPLOAD GAMBAR KE IMGBB
-async function uploadKeImgBB(file) {
-  const formData = new FormData();
-  formData.append("image", file);
-
-  const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-    method: "POST",
-    body: formData
+// FUNGSI KOMPRES FOTO DI BROWSER KE BASE64 (Aman dari batas ukuran Firestore)
+function compressImage(file, maxWidth = 800, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        // Ubah ke format JPEG terkompresi
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
   });
-
-  const hasil = await response.json();
-  
-  if (hasil.success) {
-    return hasil.data.display_url || hasil.data.url; 
-  } else {
-    throw new Error(hasil.error ? hasil.error.message : "Gagal upload ke ImgBB");
-  }
 }
 
 // ============================================================================
@@ -235,14 +242,7 @@ function renderMessages(msgs) {
         ${m.imageUrl ? `
           <div style="position: relative; margin-bottom: 6px;">
             <img src="${m.imageUrl}" alt="Foto" data-full="${m.imageUrl}" 
-                 style="max-width: 100%; width: 220px; min-height: 100px; max-height: 250px; border-radius: 8px; display: block; object-fit: cover; background: #f0f0f0;"
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-            <div style="display:none; color: #d32f2f; font-size: 11px; padding: 6px; background: #ffebee; border-radius: 6px; margin-bottom: 4px;">
-              ⚠️ Preview gagal dimuat.
-            </div>
-            <div style="margin-top: 4px; font-size: 11px; word-break: break-all;">
-              🔗 <a href="${m.imageUrl}" target="_blank" style="color: #0d47a1; text-decoration: underline; font-weight: bold;">Klik untuk Buka Gambar</a>
-            </div>
+                 style="max-width: 100%; width: 220px; min-height: 100px; max-height: 250px; border-radius: 8px; display: block; object-fit: cover; background: #e0e0e0;">
           </div>
         ` : ""}
         ${m.text ? `<div class="txt">${escapeHtml(m.text)}</div>` : ""}
@@ -294,17 +294,14 @@ document.getElementById("photoInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = "";
   if (!file || !currentChatId) return;
-  if (file.size > 5 * 1024 * 1024) {
-    alert("Ukuran foto maksimal 5MB.");
-    return;
-  }
   
   try {
-    const url = await uploadKeImgBB(file);
-    await pushMessage({ imageUrl: url });
+    // Kompres gambar otomatis di HP jadi base64 ringan
+    const base64Url = await compressImage(file, 800, 0.7);
+    await pushMessage({ imageUrl: base64Url });
   } catch (err) {
-    console.error("Gagal upload foto ke ImgBB:", err);
-    alert("Gagal mengirim foto: " + err.message);
+    console.error("Gagal memproses foto:", err);
+    alert("Gagal memproses foto: " + err.message);
   }
 });
 
