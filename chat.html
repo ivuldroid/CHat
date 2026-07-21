@@ -118,5 +118,29 @@
 </div>
 
 <script type="module" src="js/chat.js"></script>
+ <script>
+  // Solusi khusus APK HTML-to-APK agar tidak tertutup keyboard
+  if (window.visualViewport) {
+    const appShell = document.querySelector('.app-shell');
+    
+    function handleKeyboardResize() {
+      if (appShell) {
+        // Paksakan tinggi dan posisi app-shell mengikuti area yang terlihat saja
+        appShell.style.position = 'fixed';
+        appShell.style.height = window.visualViewport.height + 'px';
+        appShell.style.top = window.visualViewport.offsetTop + 'px';
+        appShell.style.left = '0';
+        appShell.style.right = '0';
+      }
+    }
+
+    window.visualViewport.addEventListener('resize', handleKeyboardResize);
+    window.visualViewport.addEventListener('scroll', handleKeyboardResize);
+    
+    // Jalankan sekali saat pertama load
+    handleKeyboardResize();
+  }
+</script>
+ 
 </body>
 </html>
