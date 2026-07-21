@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kabari</title>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -42,7 +42,7 @@
       <p>Pilih obrolan di samping, atau mulai yang baru untuk mulai ngobrol.</p>
     </div>
 
-    <div id="activeChatArea" style="display:none; flex-direction:column; height:100%; min-height:0;">
+    <div id="activeChatArea" style="display:none; flex-direction:column; height:100%;">
       <div class="main-header">
         <button class="back-btn" id="backBtn">←</button>
         <div class="avatar" id="chatAvatar">?</div>
@@ -116,20 +116,6 @@
   </div>
 </div>
 
-<!-- Script Utama Aplikasi (Wajib ada agar tombol & chat berfungsi) -->
 <script type="module" src="js/chat.js"></script>
-
-<!-- Script Pengaman Keyboard WebView APK -->
-<script>
-  const messageInput = document.getElementById('messageInput');
-  if (messageInput) {
-    messageInput.addEventListener('focus', () => {
-      setTimeout(() => {
-        window.scrollTo(0, document.body.scrollHeight);
-      }, 300);
-    });
-  }
-</script>
-
 </body>
 </html>
