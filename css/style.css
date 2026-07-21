@@ -29,8 +29,8 @@
 html, body {
   height: 100%;
   margin: 0;
+  overflow: hidden; /* ✅ Tambahkan ini agar body tidak ikut scroll */
 }
-
 body {
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--ink);
