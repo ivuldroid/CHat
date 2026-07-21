@@ -81,6 +81,48 @@ function hideModalError(id) {
   document.getElementById(id).classList.remove("show");
 }
 
+// ==========================================
+// FUNGSI KOMPRES GAMBAR UNTUK FIRESTORE (MAX ~100-200KB)
+// ==========================================
+function compressImage(file, maxSize = 300) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        // Resize gambar jika lebih besar dari maxSize (300px cukup buat avatar)
+        if (width > height) {
+          if (width > maxSize) {
+            height *= maxSize / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width *= maxSize / height;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert balik ke Base64 dengan kualitas 70% (0.7) biar ringan buat Firestore
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(compressedBase64);
+      };
+    };
+  });
+}
+
+
 // FUNGSI KOMPRES FOTO DI BROWSER KE BASE64 (Aman dari batas ukuran Firestore)
 function compressImage(file, maxWidth = 800, quality = 0.7) {
   return new Promise((resolve, reject) => {
