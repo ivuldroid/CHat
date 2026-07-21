@@ -202,9 +202,16 @@ input:focus-visible,
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr; /* Default untuk HP tegak (portrait) */
   background: var(--white);
   overflow: hidden;
+}
+
+/* 💻 Otomatis jadi 2 kolom (Sidebar + Chat) saat layar melebar / Landscape */
+@media (min-width: 768px) {
+  .app-shell {
+    grid-template-columns: 340px 1fr; /* Lebar sidebar 340px, sisanya untuk ruang chat */
+  }
 }
 /* ---------- sidebar ---------- */
 .sidebar {
