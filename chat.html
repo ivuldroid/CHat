@@ -2,7 +2,6 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<!-- ✅ Pastikan meta viewport di chat.html seperti ini -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 <title>Kabari</title>
 <link rel="stylesheet" href="css/style.css">
@@ -117,29 +116,20 @@
   </div>
 </div>
 
+<!-- Script Utama Aplikasi (Wajib ada agar tombol & chat berfungsi) -->
+<script type="module" src="js/chat.js"></script>
+
+<!-- Script Pengaman Keyboard WebView APK -->
 <script>
-  // Solusi khusus APK HTML-to-APK (adjustPan)
   const messageInput = document.getElementById('messageInput');
-  const messagesContainer = document.getElementById('messages');
-
-  if (messageInput && messagesContainer) {
+  if (messageInput) {
     messageInput.addEventListener('focus', () => {
-      // Beri ruang kosong (padding) di bawah sebesar perkiraan tinggi keyboard
       setTimeout(() => {
-        messagesContainer.style.paddingBottom = '280px';
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-      }, 300); // Delay sedikit agar animasi keyboard selesai muncul
-    });
-
-    messageInput.addEventListener('blur', () => {
-      // Kembalikan normal saat keyboard ditutup
-      setTimeout(() => {
-        messagesContainer.style.paddingBottom = '10px';
-      }, 100);
+        window.scrollTo(0, document.body.scrollHeight);
+      }, 300);
     });
   }
 </script>
 
- 
 </body>
 </html>
