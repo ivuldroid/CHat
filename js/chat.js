@@ -84,7 +84,7 @@ function hideModalError(id) {
   document.getElementById(id).classList.remove("show");
 }
 
-// FUNGSI PROSES UPLOAD GAMBAR KE IMGBB (Menggunakan display_url/url)
+// FUNGSI PROSES UPLOAD GAMBAR KE IMGBB
 async function uploadKeImgBB(file) {
   const formData = new FormData();
   formData.append("image", file);
@@ -233,13 +233,15 @@ function renderMessages(msgs) {
       <div class="bubble ${isOut ? "out" : "in"}">
         ${showSender ? `<div class="sender">${escapeHtml(m.senderName || "")}</div>` : ""}
         ${m.imageUrl ? `
-          <div style="position: relative; margin-bottom: 5px;">
+          <div style="position: relative; margin-bottom: 6px;">
             <img src="${m.imageUrl}" alt="Foto" data-full="${m.imageUrl}" 
-                 style="max-width: 100%; width: 220px; min-height: 120px; max-height: 250px; border-radius: 8px; display: block; object-fit: cover; background: #e0e0e0;"
+                 style="max-width: 100%; width: 220px; min-height: 100px; max-height: 250px; border-radius: 8px; display: block; object-fit: cover; background: #f0f0f0;"
                  onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-            <div style="display:none; color: #d32f2f; font-size: 11px; padding: 6px; background: #ffebee; border-radius: 6px;">
-              ⚠️ Gambar tidak dapat dimuat.<br>
-              <a href="${m.imageUrl}" target="_blank" style="color: #1976d2; text-decoration: underline; font-weight: bold;">[Klik untuk lihat gambar]</a>
+            <div style="display:none; color: #d32f2f; font-size: 11px; padding: 6px; background: #ffebee; border-radius: 6px; margin-bottom: 4px;">
+              ⚠️ Preview gagal dimuat.
+            </div>
+            <div style="margin-top: 4px; font-size: 11px; word-break: break-all;">
+              🔗 <a href="${m.imageUrl}" target="_blank" style="color: #0d47a1; text-decoration: underline; font-weight: bold;">Klik untuk Buka Gambar</a>
             </div>
           </div>
         ` : ""}
