@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kabari</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="app-shell" id="appShell">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="who">
+        <div class="avatar" id="myAvatar">?</div>
+        <div class="wordmark">Kabari</div>
+      </div>
+      <button class="icon-btn" id="logoutBtn" title="Keluar">⏻</button>
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="pill-btn" id="newChatBtn">+ Chat baru</button>
+      <button class="pill-btn" id="newGroupBtn">+ Grup baru</button>
+    </div>
+
+    <div class="chat-list" id="chatList">
+      <div class="sidebar-empty">Belum ada obrolan.<br>Mulai chat atau bikin grup baru di atas 👆</div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN PANE ================= -->
+  <main class="main-pane" id="mainPane">
+    <div class="main-empty" id="mainEmpty">
+      <div class="stack">
+        <div class="avatar" style="background:#1FA855;">K</div>
+        <div class="avatar" style="background:#0B4F4A;">A</div>
+        <div class="avatar" style="background:#146B5E;">B</div>
+      </div>
+      <div class="wordmark">Kabari</div>
+      <p>Pilih obrolan di samping, atau mulai yang baru untuk mulai ngobrol.</p>
+    </div>
+
+    <div id="activeChatArea" style="display:none; flex-direction:column; height:100%;">
+      <div class="main-header">
+        <button class="back-btn" id="backBtn">←</button>
+        <div class="avatar" id="chatAvatar">?</div>
+        <div>
+          <div class="name" id="chatName">—</div>
+          <div class="sub" id="chatSub"></div>
+        </div>
+      </div>
+
+      <div class="messages" id="messages"></div>
+
+      <div class="composer">
+        <button class="icon-btn" id="photoBtn" title="Kirim foto">📷</button>
+        <input type="file" id="photoInput" accept="image/*" style="display:none;">
+        <input type="text" id="messageInput" placeholder="Ketik pesan..." autocomplete="off">
+        <button class="send-btn" id="sendBtn" title="Kirim">➤</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ================= MODAL: CHAT BARU ================= -->
+<div class="modal-backdrop" id="newChatModal">
+  <div class="modal">
+    <h3>Chat baru</h3>
+    <p class="modal-sub">Masukkan email teman yang sudah terdaftar di Kabari.</p>
+    <div class="field">
+      <label for="newChatEmail">Email</label>
+      <input type="email" id="newChatEmail" placeholder="teman@email.com">
+    </div>
+    <div class="modal-error" id="newChatError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="newChatCancel">Batal</button>
+      <button class="btn-primary" id="newChatConfirm">Mulai chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: GRUP BARU ================= -->
+<div class="modal-backdrop" id="newGroupModal">
+  <div class="modal">
+    <h3>Grup baru</h3>
+    <p class="modal-sub">Kasih nama grup, lalu tambahkan anggota lewat email satu per satu.</p>
+    <div class="field">
+      <label for="groupName">Nama grup</label>
+      <input type="text" id="groupName" placeholder="Misal: Tim Proyek">
+    </div>
+    <div class="field">
+      <label for="groupMemberEmail">Tambah anggota (email)</label>
+      <div class="modal-row">
+        <input type="email" id="groupMemberEmail" placeholder="teman@email.com">
+        <button class="add-btn" id="groupMemberAdd" type="button">Tambah</button>
+      </div>
+    </div>
+    <div class="chip-row" id="groupMemberChips"></div>
+    <div class="modal-error" id="newGroupError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="newGroupCancel">Batal</button>
+      <button class="btn-primary" id="newGroupConfirm">Buat grup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: PREVIEW FOTO ================= -->
+<div class="modal-backdrop" id="imagePreviewModal">
+  <div class="modal" style="max-width: 520px; padding: 16px;">
+    <img id="imagePreviewImg" style="width:100%; border-radius:12px; display:block;">
+    <div class="modal-actions">
+      <button class="btn-secondary" id="imagePreviewClose">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/chat.js"></script>
+</body>
+</html>
