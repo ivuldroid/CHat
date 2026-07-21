@@ -199,14 +199,12 @@ input:focus-visible,
    ========================================================================== */
 
 .app-shell {
-  height: 100dvh;
-  width: 100vw;
+  height: 100dvh; /* ✅ Gunakan 100dvh agar otomatis menyesuaikan saat keyboard muncul */
   display: grid;
   grid-template-columns: 1fr;
   background: var(--white);
   overflow: hidden;
 }
-
 /* ---------- sidebar ---------- */
 .sidebar {
   background: var(--white);
