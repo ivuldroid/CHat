@@ -199,8 +199,8 @@ input:focus-visible,
    ========================================================================== */
 
 .app-shell {
-  position: fixed;
-  inset: 0;
+  height: 100dvh;
+  width: 100vw;
   display: grid;
   grid-template-columns: 1fr;
   background: var(--white);
