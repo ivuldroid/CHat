@@ -210,9 +210,30 @@ input:focus-visible,
 /* 💻 Otomatis jadi 2 kolom (Sidebar + Chat) saat layar melebar / Landscape */
 @media (min-width: 768px) {
   .app-shell {
-    grid-template-columns: 340px 1fr; /* Lebar sidebar 340px, sisanya untuk ruang chat */
+    grid-template-columns: 340px 1fr;
+  }
+
+  /* 1. Paksa sidebar dan area chat SELALU MUNCUL bersamaan */
+  .sidebar {
+    display: flex !important;
+    transform: none !important;
+    border-right: 1px solid #ddd; /* Tambahan garis pembatas biar rapi */
+  }
+
+  .main-pane {
+    display: flex !important;
+    flex-direction: column !important;
+    transform: none !important;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 2. Sembunyikan tombol '← Kembali' karena di desktop/landscape tidak terpakai */
+  .back-btn {
+    display: none !important;
   }
 }
+
 /* ---------- sidebar ---------- */
 .sidebar {
   background: var(--white);
