@@ -55,18 +55,7 @@
     <p class="auth-hint">Data kamu tersimpan di Firebase project kamu sendiri.</p>
   </div>
 </div>
-<script>
-  // Solusi mutlak untuk Android WebView: Paksa shell ikut mengecil pas keyboard muncul
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => {
-      const appShell = document.getElementById('appShell');
-      if (appShell) {
-        appShell.style.height = window.visualViewport.height + 'px';
-        window.scrollTo(0, 0);
-      }
-    });
-  }
-</script>
+
 
 <script type="module" src="js/auth.js"></script>
 </body>
