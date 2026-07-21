@@ -408,13 +408,15 @@ input:focus-visible,
 }
 
 .messages {
+ messages {
   flex: 1;
+  min-height: 0; /* ✅ Tambahkan baris ini supaya area chat tidak mendorong kotak ketik ke luar layar */
   overflow-y: auto;
   padding: 22px 6% 10px;
   display: flex;
   flex-direction: column;
   gap: 3px;
-}
+ }
 
 .bubble-row {
   display: flex;
