@@ -84,7 +84,7 @@ function hideModalError(id) {
   document.getElementById(id).classList.remove("show");
 }
 
-// FUNGSI PROSES UPLOAD GAMBAR KE IMGBB
+// FUNGSI PROSES UPLOAD GAMBAR KE IMGBB (Menggunakan display_url/url)
 async function uploadKeImgBB(file) {
   const formData = new FormData();
   formData.append("image", file);
@@ -97,7 +97,7 @@ async function uploadKeImgBB(file) {
   const hasil = await response.json();
   
   if (hasil.success) {
-    return hasil.data.url; // Mengembalikan link gambar fisik (.jpg/.png)
+    return hasil.data.display_url || hasil.data.url; 
   } else {
     throw new Error(hasil.error ? hasil.error.message : "Gagal upload ke ImgBB");
   }
@@ -232,7 +232,17 @@ function renderMessages(msgs) {
     row.innerHTML = `
       <div class="bubble ${isOut ? "out" : "in"}">
         ${showSender ? `<div class="sender">${escapeHtml(m.senderName || "")}</div>` : ""}
-        ${m.imageUrl ? `<img src="${m.imageUrl}" alt="Foto" data-full="${m.imageUrl}" style="max-width: 100%; width: 200px; max-height: 250px; border-radius: 8px; margin-bottom: 5px; display: block; object-fit: cover;">` : ""}
+        ${m.imageUrl ? `
+          <div style="position: relative; margin-bottom: 5px;">
+            <img src="${m.imageUrl}" alt="Foto" data-full="${m.imageUrl}" 
+                 style="max-width: 100%; width: 220px; min-height: 120px; max-height: 250px; border-radius: 8px; display: block; object-fit: cover; background: #e0e0e0;"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+            <div style="display:none; color: #d32f2f; font-size: 11px; padding: 6px; background: #ffebee; border-radius: 6px;">
+              ⚠️ Gambar tidak dapat dimuat.<br>
+              <a href="${m.imageUrl}" target="_blank" style="color: #1976d2; text-decoration: underline; font-weight: bold;">[Klik untuk lihat gambar]</a>
+            </div>
+          </div>
+        ` : ""}
         ${m.text ? `<div class="txt">${escapeHtml(m.text)}</div>` : ""}
         <div class="time">${m.timestamp ? formatTime(m.timestamp) : "Mengirim..."}</div>
       </div>
@@ -278,7 +288,6 @@ document.getElementById("photoBtn").addEventListener("click", () => {
   document.getElementById("photoInput").click();
 });
 
-// LOGIC UPDATE: PROSES SEKARANG MEMAKAI IMGBB (100% NO COST)
 document.getElementById("photoInput").addEventListener("change", async (e) => {
   const file = e.target.files[0];
   e.target.value = "";
@@ -289,9 +298,7 @@ document.getElementById("photoInput").addEventListener("change", async (e) => {
   }
   
   try {
-    // 1. Upload ke ImgBB, dapatkan URL teks-nya
     const url = await uploadKeImgBB(file);
-    // 2. Dorong datanya ke Firestore chat messages seperti biasa
     await pushMessage({ imageUrl: url });
   } catch (err) {
     console.error("Gagal upload foto ke ImgBB:", err);
