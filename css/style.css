@@ -69,7 +69,7 @@ input:focus-visible,
    ========================================================================== */
 
 .auth-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,7 +199,7 @@ input:focus-visible,
    ========================================================================== */
 
 .app-shell {
-  height: 100vh;
+  height: 100dvh; /* ✅ Diperbarui pakai dvh agar aman dari navibar Android */
   display: grid;
   grid-template-columns: 380px 1fr;
   background: var(--white);
@@ -212,6 +212,7 @@ input:focus-visible,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100%;
 }
 
 .sidebar-top {
@@ -380,6 +381,7 @@ input:focus-visible,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100%;
   background:
     repeating-linear-gradient(135deg, rgba(11,79,74,0.025) 0 2px, transparent 2px 26px),
     var(--parchment);
@@ -487,6 +489,8 @@ input:focus-visible,
   display: flex;
   align-items: center;
   gap: 10px;
+  /* ✅ Diperbarui: Memberikan ruang aman agar tidak tertutup navibar / gesture bar bawah */
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
 .composer input[type="text"] {
