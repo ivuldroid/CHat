@@ -204,8 +204,8 @@ input:focus-visible,
   display: grid;
   grid-template-columns: 380px 1fr;
   background: var(--white);
+  overflow: hidden; /* ✅ Tambahkan ini */
 }
-
 /* ---------- sidebar ---------- */
 .sidebar {
   background: var(--white);
@@ -213,9 +213,9 @@ input:focus-visible,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0; /* ✅ WAJIB ADA BIAR BISA DI-SCROLL */
   height: 100%;
 }
-
 .sidebar-top {
   background: var(--teal-deep);
   color: var(--white);
@@ -382,12 +382,12 @@ input:focus-visible,
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0; /* ✅ WAJIB ADA BIAR BISA DI-SCROLL */
   height: 100%;
   background:
     repeating-linear-gradient(135deg, rgba(11,79,74,0.025) 0 2px, transparent 2px 26px),
     var(--parchment);
 }
-
 .main-header {
   background: var(--white);
   border-bottom: 1px solid #E9E4D8;
