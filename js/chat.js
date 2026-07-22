@@ -6,7 +6,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import {
   collection, query, where, orderBy, onSnapshot, addDoc, doc, getDoc,
-  getDocs, updateDoc, setDoc, arrayUnion, serverTimestamp
+  getDocs, updateDoc, setDoc, arrayUnion, increment, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const AVATAR_COLORS = ["#1FA855", "#0B4F4A", "#146B5E", "#C77C3B", "#4A6FA5", "#A0555C", "#6B4C9A", "#B08B2E"];
@@ -201,12 +201,14 @@ function renderChatList() {
   const listEl = document.getElementById("chatList");
   if (allChatsCache.length === 0) {
     listEl.innerHTML = `<div class="sidebar-empty">Belum ada obrolan.<br>Mulai chat atau bikin grup baru di atas 👆</div>`;
+    updateUnreadTitle();
     return;
   }
   listEl.innerHTML = "";
   allChatsCache.forEach((chat) => {
     const isGroup = chat.type === "group";
     const title = isGroup ? chat.groupName : getOtherMemberName(chat);
+    const unread = (chat.unreadCount && chat.unreadCount[currentUser.uid]) || 0;
     const item = document.createElement("button");
     item.className = "chat-item" + (chat.id === currentChatId ? " active" : "");
     item.innerHTML = `
@@ -216,12 +218,22 @@ function renderChatList() {
           <span class="name">${escapeHtml(title)}</span>
           <span class="time">${chat.lastMessageTime ? formatTime(chat.lastMessageTime) : ""}</span>
         </div>
-        <div class="preview">${escapeHtml(chat.lastMessage || "Belum ada pesan")}</div>
+        <div class="row2">
+          <div class="preview${unread > 0 ? " unread" : ""}">${escapeHtml(chat.lastMessage || "Belum ada pesan")}</div>
+          ${unread > 0 ? `<span class="unread-badge">${unread > 99 ? "99+" : unread}</span>` : ""}
+        </div>
       </div>
     `;
     item.addEventListener("click", () => openChat(chat.id));
     listEl.appendChild(item);
   });
+  updateUnreadTitle();
+}
+
+// Total notifikasi belum dibaca di semua chat, ditaruh di judul tab browser — mis. "(3) Kabari"
+function updateUnreadTitle() {
+  const total = allChatsCache.reduce((sum, c) => sum + ((c.unreadCount && c.unreadCount[currentUser.uid]) || 0), 0);
+  document.title = total > 0 ? `(${total > 99 ? "99+" : total}) Kabari` : "Kabari";
 }
 
 // ============================================================================
@@ -236,7 +248,10 @@ async function openChat(chatId, preloadedData) {
     if (!snap.exists()) return;
     currentChatData = { id: chatId, ...snap.data() };
   }
+  // Hilangkan badge notifikasi chat ini seketika (optimis di UI), lalu simpan ke Firestore
+  if (currentChatData.unreadCount) currentChatData.unreadCount[currentUser.uid] = 0;
   renderChatList();
+  resetUnreadCount(chatId);
 
   document.getElementById("mainEmpty").style.display = "none";
   document.getElementById("activeChatArea").style.display = "flex";
@@ -259,6 +274,15 @@ async function openChat(chatId, preloadedData) {
   }, (err) => {
     console.error("Gagal memuat pesan:", err);
   });
+}
+
+// Reset badge notifikasi chat ini untuk diri sendiri (dipanggil saat chat dibuka)
+async function resetUnreadCount(chatId) {
+  try {
+    await updateDoc(doc(db, "chats", chatId), { [`unreadCount.${currentUser.uid}`]: 0 });
+  } catch (err) {
+    console.error("Gagal reset notifikasi:", err);
+  }
 }
 
 // Tandai pesan masuk sebagai "dibaca" begitu chat ini sedang dibuka
@@ -340,10 +364,15 @@ async function pushMessage({ text, imageUrl }) {
   if (imageUrl) msgData.imageUrl = imageUrl;
 
   await addDoc(collection(db, "chats", currentChatId, "messages"), msgData);
-  await updateDoc(doc(db, "chats", currentChatId), {
+
+  const chatUpdates = {
     lastMessage: imageUrl ? "📷 Foto" : text,
     lastMessageTime: serverTimestamp()
+  };
+  currentChatData.members.forEach((uid) => {
+    if (uid !== currentUser.uid) chatUpdates[`unreadCount.${uid}`] = increment(1);
   });
+  await updateDoc(doc(db, "chats", currentChatId), chatUpdates);
 }
 
 document.getElementById("sendBtn").addEventListener("click", sendTextMessage);
