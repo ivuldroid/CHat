@@ -48,11 +48,13 @@
     <div id="activeChatArea" style="display:none; flex-direction:column; height:100%;">
       <div class="main-header">
         <button class="back-btn" id="backBtn">←</button>
-        <div class="avatar" id="chatAvatar">?</div>
-        <div>
-          <div class="name" id="chatName">—</div>
-          <div class="sub" id="chatSub"></div>
-        </div>
+        <button class="header-profile-btn" id="chatHeaderInfo" type="button">
+          <div class="avatar" id="chatAvatar">?</div>
+          <div>
+            <div class="name" id="chatName">—</div>
+            <div class="sub" id="chatSub"></div>
+          </div>
+        </button>
       </div>
 
       <div class="messages" id="messages"></div>
@@ -60,6 +62,7 @@
       <div class="composer">
         <button class="icon-btn" id="photoBtn" title="Kirim foto">📷</button>
         <input type="file" id="photoInput" accept="image/*" style="display:none;">
+        <button class="icon-btn" id="locationBtn" title="Kirim lokasi">📍</button>
         <input type="text" id="messageInput" placeholder="Ketik pesan..." autocomplete="off">
         <button class="send-btn" id="sendBtn" title="Kirim">➤</button>
       </div>
@@ -122,17 +125,36 @@
 <!-- ================= MODAL: EDIT PROFIL ================= -->
 <div class="modal-backdrop" id="editProfileModal">
   <div class="modal">
-    <h3>Foto profil</h3>
-    <p class="modal-sub">Foto ini akan terlihat oleh teman chat kamu.</p>
+    <h3>Profil saya</h3>
+    <p class="modal-sub">Foto & status ini akan terlihat oleh teman chat kamu.</p>
     <div class="profile-photo-picker">
       <div class="avatar avatar-lg" id="profilePreview">?</div>
       <label class="btn-secondary profile-upload-label" for="profilePhotoInput">Pilih foto</label>
       <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;">
     </div>
+    <div class="field status-picker">
+      <label>Status</label>
+      <div class="status-chips" id="statusChips"></div>
+      <input type="text" class="status-input" id="statusInput" placeholder="Tulis status sendiri..." maxlength="60">
+    </div>
     <div class="modal-error" id="editProfileError"></div>
     <div class="modal-actions">
       <button class="btn-secondary" id="editProfileCancel">Batal</button>
       <button class="btn-primary" id="editProfileSave">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: LIHAT PROFIL ================= -->
+<div class="modal-backdrop" id="viewProfileModal">
+  <div class="modal">
+    <div class="view-profile-body">
+      <div class="avatar avatar-lg" id="viewProfileAvatar">?</div>
+      <div class="view-profile-name" id="viewProfileName"></div>
+      <div class="view-profile-status" id="viewProfileStatus"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="viewProfileClose" style="flex:1;">Tutup</button>
     </div>
   </div>
 </div>
