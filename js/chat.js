@@ -182,10 +182,40 @@ function listenToChats() {
     orderBy("lastMessageTime", "desc")
   );
   onSnapshot(q, (snapshot) => {
-    allChatsCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const newChats = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    checkForNewMessageNotifications(newChats);
+    allChatsCache = newChats;
     renderChatList();
   }, (err) => {
     console.error("Gagal memuat daftar chat:", err);
+  });
+}
+
+// Bandingkan unreadCount tiap chat dengan snapshot sebelumnya untuk mendeteksi
+// pesan masuk yang benar-benar baru (bukan sekadar update read-receipt dsb),
+// lalu bunyikan suara + tampilkan popup notifikasi.
+let prevUnreadByChat = {};
+let unreadBaselineSet = false;
+
+function checkForNewMessageNotifications(newChats) {
+  if (!unreadBaselineSet) {
+    newChats.forEach((chat) => {
+      prevUnreadByChat[chat.id] = (chat.unreadCount && chat.unreadCount[currentUser.uid]) || 0;
+    });
+    unreadBaselineSet = true;
+    return;
+  }
+  newChats.forEach((chat) => {
+    const myUnread = (chat.unreadCount && chat.unreadCount[currentUser.uid]) || 0;
+    const prevUnread = prevUnreadByChat[chat.id] || 0;
+    const sedangDilihat = currentChatId === chat.id && document.visibilityState === "visible";
+    if (myUnread > prevUnread && !sedangDilihat) {
+      const isGroup = chat.type === "group";
+      const title = isGroup ? chat.groupName : getOtherMemberName(chat);
+      playNotifSound();
+      showMessageNotification(title, chat.lastMessage, chat.id);
+    }
+    prevUnreadByChat[chat.id] = myUnread;
   });
 }
 
@@ -341,6 +371,12 @@ function renderMessages(msgs) {
                  style="max-width: 100%; width: 220px; min-height: 100px; max-height: 250px; border-radius: 8px; display: block; object-fit: cover; background: #e0e0e0;">
           </div>
         ` : ""}
+        ${m.location ? `
+          <a href="https://www.google.com/maps?q=${m.location.lat},${m.location.lng}" target="_blank" rel="noopener" class="location-card">
+            <span class="location-card-icon">📍</span>
+            <span class="location-card-label">Lihat Lokasi di Peta</span>
+          </a>
+        ` : ""}
         ${m.text ? `<div class="txt">${escapeHtml(m.text)}</div>` : ""}
         <div class="time">${m.timestamp ? formatTime(m.timestamp) : "Mengirim..."}${isOut ? messageStatusHtml(m) : ""}</div>
       </div>
@@ -353,7 +389,7 @@ function renderMessages(msgs) {
   });
 }
 
-async function pushMessage({ text, imageUrl }) {
+async function pushMessage({ text, imageUrl, location }) {
   const msgData = {
     senderId: currentUser.uid,
     senderName: currentUser.displayName || currentUser.email,
@@ -362,11 +398,12 @@ async function pushMessage({ text, imageUrl }) {
   };
   if (text) msgData.text = text;
   if (imageUrl) msgData.imageUrl = imageUrl;
+  if (location) msgData.location = location;
 
   await addDoc(collection(db, "chats", currentChatId, "messages"), msgData);
 
   const chatUpdates = {
-    lastMessage: imageUrl ? "📷 Foto" : text,
+    lastMessage: imageUrl ? "📷 Foto" : (location ? "📍 Lokasi" : text),
     lastMessageTime: serverTimestamp()
   };
   currentChatData.members.forEach((uid) => {
@@ -405,6 +442,33 @@ document.getElementById("photoInput").addEventListener("change", async (e) => {
     console.error("Gagal memproses foto:", err);
     alert("Gagal memproses foto: " + err.message);
   }
+});
+
+document.getElementById("locationBtn").addEventListener("click", () => {
+  if (!currentChatId) return;
+  if (!navigator.geolocation) {
+    alert("Perangkat/browser ini tidak mendukung berbagi lokasi.");
+    return;
+  }
+  const btn = document.getElementById("locationBtn");
+  btn.disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      btn.disabled = false;
+      try {
+        await pushMessage({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } });
+      } catch (err) {
+        console.error("Gagal mengirim lokasi:", err);
+        alert("Gagal mengirim lokasi: " + err.message);
+      }
+    },
+    (err) => {
+      btn.disabled = false;
+      console.error("Gagal mengambil lokasi:", err);
+      alert("Gagal mengambil lokasi. Pastikan izin lokasi diaktifkan di browser/HP.");
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
 });
 
 // ============================================================================
@@ -576,8 +640,23 @@ document.getElementById("newGroupConfirm").addEventListener("click", async () =>
 });
 
 // ============================================================================
-// PROFIL SAYA (FOTO PROFIL)
+// PROFIL SAYA (FOTO + STATUS)
 // ============================================================================
+
+const STATUS_PRESETS = ["🟢 Tersedia", "🔴 Sibuk", "😢 Sedih", "😄 Senang", "🌙 Jangan diganggu", "📚 Belajar"];
+
+function renderStatusChips(selected) {
+  const el = document.getElementById("statusChips");
+  el.innerHTML = STATUS_PRESETS.map(
+    (s) => `<button type="button" class="status-chip${s === selected ? " active" : ""}" data-status="${escapeHtml(s)}">${s}</button>`
+  ).join("");
+  el.querySelectorAll(".status-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.getElementById("statusInput").value = chip.dataset.status;
+      renderStatusChips(chip.dataset.status);
+    });
+  });
+}
 
 const editProfileModal = document.getElementById("editProfileModal");
 let pendingProfilePhoto = null;
@@ -586,6 +665,8 @@ document.getElementById("myAvatarBtn").addEventListener("click", () => {
   pendingProfilePhoto = null;
   hideModalError("editProfileError");
   setAvatarEl(document.getElementById("profilePreview"), currentUser.displayName || currentUser.email, myProfile.photoURL);
+  document.getElementById("statusInput").value = myProfile.statusText || "";
+  renderStatusChips(myProfile.statusText || "");
   editProfileModal.classList.add("show");
 });
 document.getElementById("editProfileCancel").addEventListener("click", () => editProfileModal.classList.remove("show"));
@@ -606,23 +687,108 @@ document.getElementById("profilePhotoInput").addEventListener("change", async (e
 });
 
 document.getElementById("editProfileSave").addEventListener("click", async () => {
-  if (!pendingProfilePhoto) { editProfileModal.classList.remove("show"); return; }
   const btn = document.getElementById("editProfileSave");
   btn.disabled = true;
   btn.textContent = "Menyimpan...";
+  const updates = { statusText: document.getElementById("statusInput").value.trim().slice(0, 60) };
+  if (pendingProfilePhoto) updates.photoURL = pendingProfilePhoto;
   try {
-    await setDoc(doc(db, "users", currentUser.uid), { photoURL: pendingProfilePhoto }, { merge: true });
-    myProfile.photoURL = pendingProfilePhoto;
+    await setDoc(doc(db, "users", currentUser.uid), updates, { merge: true });
+    Object.assign(myProfile, updates);
     setAvatarEl(document.getElementById("myAvatar"), currentUser.displayName || currentUser.email, myProfile.photoURL);
     editProfileModal.classList.remove("show");
   } catch (err) {
     console.error(err);
-    showModalError("editProfileError", "Gagal menyimpan foto. Coba lagi.");
+    showModalError("editProfileError", "Gagal menyimpan profil. Coba lagi.");
   } finally {
     btn.disabled = false;
     btn.textContent = "Simpan";
   }
 });
+
+// ============================================================================
+// LIHAT PROFIL ORANG LAIN (dari header chat 1-on-1)
+// ============================================================================
+
+const viewProfileModal = document.getElementById("viewProfileModal");
+
+document.getElementById("chatHeaderInfo").addEventListener("click", async () => {
+  if (!currentChatData || currentChatData.type === "group") return;
+  const otherUid = currentChatData.members.find((uid) => uid !== currentUser.uid);
+  const title = getOtherMemberName(currentChatData);
+  setAvatarEl(document.getElementById("viewProfileAvatar"), title, getOtherMemberPhoto(currentChatData));
+  document.getElementById("viewProfileName").textContent = title;
+  document.getElementById("viewProfileStatus").textContent = "Memuat status...";
+  viewProfileModal.classList.add("show");
+  try {
+    const snap = await getDoc(doc(db, "users", otherUid));
+    const data = snap.exists() ? snap.data() : {};
+    document.getElementById("viewProfileStatus").textContent = data.statusText || "Belum ada status.";
+  } catch (err) {
+    console.error("Gagal memuat profil:", err);
+    document.getElementById("viewProfileStatus").textContent = "Belum ada status.";
+  }
+});
+document.getElementById("viewProfileClose").addEventListener("click", () => viewProfileModal.classList.remove("show"));
+viewProfileModal.addEventListener("click", (e) => { if (e.target === viewProfileModal) viewProfileModal.classList.remove("show"); });
+
+// ============================================================================
+// NOTIFIKASI SUARA + POP UP
+// ============================================================================
+
+// Bunyi "ding" pendek dibuat langsung lewat Web Audio API (tidak perlu file suara)
+function playNotifSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = ctx.currentTime;
+    [880, 660].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = now + i * 0.12;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.3);
+    });
+  } catch (err) {
+    console.error("Gagal memutar suara notifikasi:", err);
+  }
+}
+
+// Minta izin notifikasi browser di sentuhan pertama pengguna (butuh user-gesture)
+let notifPermissionAsked = false;
+async function ensureNotifPermission() {
+  if (!("Notification" in window)) return;
+  if (Notification.permission !== "default" || notifPermissionAsked) return;
+  notifPermissionAsked = true;
+  try {
+    await Notification.requestPermission();
+  } catch (err) {
+    console.error("Gagal meminta izin notifikasi:", err);
+  }
+}
+document.addEventListener("click", function onFirstAppClick() {
+  document.removeEventListener("click", onFirstAppClick);
+  ensureNotifPermission();
+}, { once: true });
+
+function showMessageNotification(senderName, preview, chatId) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  try {
+    const n = new Notification(senderName, { body: preview || "Pesan baru", tag: chatId });
+    n.onclick = () => {
+      window.focus();
+      openChat(chatId);
+      n.close();
+    };
+  } catch (err) {
+    console.error("Gagal menampilkan notifikasi:", err);
+  }
+}
 
 // ============================================================================
 // PREVIEW FOTO + NAVIGASI MOBILE (tombol back HP kembali ke daftar chat)
