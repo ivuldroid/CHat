@@ -249,6 +249,71 @@ input:focus-visible,
   background: var(--leaf);
 }
 
+.avatar.avatar-photo {
+  background: var(--parchment);
+  overflow: hidden;
+}
+
+.avatar.avatar-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+
+.avatar-lg {
+  width: 84px;
+  height: 84px;
+  font-size: 26px;
+  margin: 0 auto;
+}
+
+.avatar-edit-btn {
+  position: relative;
+  border: none;
+  background: none;
+  padding: 0;
+  display: block;
+  border-radius: 50%;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--leaf);
+  color: var(--white);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--teal-deep);
+}
+
+.profile-photo-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 0 8px;
+}
+
+.profile-upload-label {
+  display: inline-block;
+  width: auto;
+  flex: none;
+  padding: 9px 20px;
+}
+
 .icon-btn {
   border: none;
   background: rgba(255,255,255,0.12);
@@ -415,6 +480,8 @@ input:focus-visible,
 
 .bubble-row {
   display: flex;
+  align-items: flex-end;
+  gap: 8px;
   margin-bottom: 6px;
 }
 
@@ -463,6 +530,16 @@ input:focus-visible,
   color: var(--slate-light);
   text-align: right;
   margin-top: 3px;
+}
+
+.status-tick {
+  margin-left: 4px;
+  color: var(--slate-light);
+  letter-spacing: -1px;
+}
+
+.status-tick.read {
+  color: var(--leaf-dark);
 }
 
 .day-divider {
