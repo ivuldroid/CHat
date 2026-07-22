@@ -314,6 +314,75 @@ input:focus-visible,
   padding: 9px 20px;
 }
 
+.status-picker {
+  margin-top: 16px;
+}
+
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.status-chip {
+  border: 1.5px solid #E4DFD3;
+  background: var(--white);
+  color: var(--slate);
+  font-size: 12.5px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.status-chip.active {
+  border-color: var(--leaf);
+  background: var(--bubble-out);
+  color: var(--leaf-dark);
+  font-weight: 600;
+}
+
+.view-profile-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 18px;
+  text-align: center;
+}
+
+.view-profile-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.view-profile-status {
+  font-size: 14px;
+  color: var(--slate);
+}
+
+.location-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--parchment);
+  border-radius: 10px;
+  padding: 12px;
+  text-decoration: none;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.location-card-icon {
+  font-size: 22px;
+}
+
+.location-card-label {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
 .icon-btn {
   border: none;
   background: rgba(255,255,255,0.12);
@@ -487,6 +556,19 @@ input:focus-visible,
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.header-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  flex: 1;
 }
 
 .main-header .name {
