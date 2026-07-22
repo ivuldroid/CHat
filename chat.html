@@ -23,6 +23,8 @@
       <button class="icon-btn" id="logoutBtn" title="Keluar">⏻</button>
     </div>
 
+    <div class="story-rail" id="storyRail"></div>
+
     <div class="sidebar-actions">
       <button class="pill-btn" id="newChatBtn">+ Chat baru</button>
       <button class="pill-btn" id="newGroupBtn">+ Grup baru</button>
@@ -157,6 +159,47 @@
       <button class="btn-primary" id="viewProfileClose" style="flex:1;">Tutup</button>
     </div>
   </div>
+</div>
+
+<!-- ================= MODAL: STORY BARU ================= -->
+<input type="file" id="storyPhotoInput" accept="image/*" style="display:none;">
+<div class="modal-backdrop" id="postStoryModal">
+  <div class="modal" style="max-width: 420px;">
+    <h3>Story baru</h3>
+    <img id="postStoryPreview" style="width:100%; max-height:320px; object-fit:cover; border-radius:12px; display:block; margin-bottom:12px; background:#e0e0e0;">
+    <div class="field">
+      <label for="postStoryCaption">Keterangan (opsional)</label>
+      <input type="text" id="postStoryCaption" placeholder="Tulis keterangan..." maxlength="120">
+    </div>
+    <div class="modal-error" id="postStoryError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="postStoryCancel">Batal</button>
+      <button class="btn-primary" id="postStoryConfirm">Bagikan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= STORY VIEWER (FULL-SCREEN) ================= -->
+<div class="story-viewer" id="storyViewer">
+  <div class="story-viewer-progress" id="storyProgress"></div>
+  <div class="story-viewer-header">
+    <div class="avatar avatar-sm" id="storyViewerAvatar">?</div>
+    <div class="story-viewer-name" id="storyViewerName"></div>
+    <div class="story-viewer-time" id="storyViewerTime"></div>
+    <button class="story-viewer-close" id="storyViewerClose" type="button">✕</button>
+  </div>
+  <div class="story-viewer-media">
+    <img id="storyViewerImg" alt="Story">
+    <div class="story-viewer-caption" id="storyViewerCaption"></div>
+    <div class="story-viewer-nav">
+      <button class="story-viewer-tap" id="storyTapPrev" type="button" aria-label="Sebelumnya"></button>
+      <button class="story-viewer-tap" id="storyTapNext" type="button" aria-label="Berikutnya"></button>
+    </div>
+  </div>
+  <form class="story-reply-bar" id="storyReplyForm">
+    <input type="text" id="storyReplyInput" placeholder="Balas story..." autocomplete="off">
+    <button type="submit" class="send-btn" id="storyReplySend" title="Kirim">➤</button>
+  </form>
 </div>
 
 <script type="module" src="js/chat.js"></script>
