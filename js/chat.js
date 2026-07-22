@@ -6,7 +6,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import {
   collection, query, where, orderBy, onSnapshot, addDoc, doc, getDoc,
-  getDocs, updateDoc, serverTimestamp
+  getDocs, updateDoc, setDoc, arrayUnion, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const AVATAR_COLORS = ["#1FA855", "#0B4F4A", "#146B5E", "#C77C3B", "#4A6FA5", "#A0555C", "#6B4C9A", "#B08B2E"];
@@ -35,6 +35,30 @@ function colorFromString(str) {
     hash = str.charCodeAt(i) + ((hash << 5) - hash);
   }
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+// Render avatar sebagai HTML string (dipakai di daftar chat & bubble pesan).
+// Pakai foto asli kalau ada, kalau tidak fallback ke inisial berwarna.
+function avatarHtmlStr(name, photoURL, extraClass = "") {
+  const cls = "avatar" + (extraClass ? " " + extraClass : "") + (photoURL ? " avatar-photo" : "");
+  if (photoURL) {
+    return `<div class="${cls}"><img src="${photoURL}" alt=""></div>`;
+  }
+  return `<div class="${cls}" style="background:${colorFromString(name)}">${initialsOf(name)}</div>`;
+}
+
+// Versi DOM langsung (dipakai untuk elemen avatar yang sudah ada di HTML, misal myAvatar/chatAvatar)
+function setAvatarEl(el, name, photoURL) {
+  if (photoURL) {
+    el.classList.add("avatar-photo");
+    el.style.background = "";
+    el.innerHTML = `<img src="${photoURL}" alt="">`;
+  } else {
+    el.classList.remove("avatar-photo");
+    el.innerHTML = "";
+    el.style.background = colorFromString(name);
+    el.textContent = initialsOf(name);
+  }
 }
 
 function escapeHtml(str) {
@@ -69,6 +93,11 @@ function formatDayLabel(d) {
 function getOtherMemberName(chat) {
   const otherUid = chat.members.find((uid) => uid !== currentUser.uid);
   return (chat.memberNames && chat.memberNames[otherUid]) || "Pengguna";
+}
+
+function getOtherMemberPhoto(chat) {
+  const otherUid = chat.members.find((uid) => uid !== currentUser.uid);
+  return (chat.memberPhotos && chat.memberPhotos[otherUid]) || "";
 }
 
 function showModalError(id, msg) {
@@ -114,16 +143,27 @@ function compressImage(file, maxWidth = 800, quality = 0.7) {
 // AUTH GUARD
 // ============================================================================
 
-onAuthStateChanged(auth, (user) => {
+let myProfile = { photoURL: "" };
+
+async function loadMyProfile(name) {
+  try {
+    const snap = await getDoc(doc(db, "users", currentUser.uid));
+    myProfile = snap.exists() ? snap.data() : {};
+  } catch (err) {
+    console.error("Gagal memuat profil:", err);
+    myProfile = {};
+  }
+  setAvatarEl(document.getElementById("myAvatar"), name, myProfile.photoURL);
+}
+
+onAuthStateChanged(auth, async (user) => {
   if (!user) {
     window.location.href = "index.html";
     return;
   }
   currentUser = user;
   const name = user.displayName || user.email;
-  const myAvatar = document.getElementById("myAvatar");
-  myAvatar.textContent = initialsOf(name);
-  myAvatar.style.background = colorFromString(name);
+  await loadMyProfile(name);
   listenToChats();
 });
 
@@ -150,10 +190,10 @@ function listenToChats() {
 }
 
 function renderGroupAvatarHtml(chat) {
-  const names = Object.values(chat.memberNames || {}).slice(0, 2);
-  if (names.length === 0) names.push(chat.groupName || "G");
-  return `<div class="group-avatar">${names
-    .map((n) => `<div class="avatar" style="background:${colorFromString(n)}">${initialsOf(n)}</div>`)
+  const entries = Object.entries(chat.memberNames || {}).slice(0, 2);
+  if (entries.length === 0) entries.push(["_", chat.groupName || "G"]);
+  return `<div class="group-avatar">${entries
+    .map(([uid, n]) => avatarHtmlStr(n, chat.memberPhotos && chat.memberPhotos[uid]))
     .join("")}</div>`;
 }
 
@@ -170,7 +210,7 @@ function renderChatList() {
     const item = document.createElement("button");
     item.className = "chat-item" + (chat.id === currentChatId ? " active" : "");
     item.innerHTML = `
-      ${isGroup ? renderGroupAvatarHtml(chat) : `<div class="avatar" style="background:${colorFromString(title)}">${initialsOf(title)}</div>`}
+      ${isGroup ? renderGroupAvatarHtml(chat) : avatarHtmlStr(title, getOtherMemberPhoto(chat))}
       <div class="meta">
         <div class="row1">
           <span class="name">${escapeHtml(title)}</span>
@@ -201,22 +241,53 @@ async function openChat(chatId, preloadedData) {
   document.getElementById("mainEmpty").style.display = "none";
   document.getElementById("activeChatArea").style.display = "flex";
   document.getElementById("appShell").classList.add("chat-open");
+  pushChatHistoryState();
 
   const isGroup = currentChatData.type === "group";
   const title = isGroup ? currentChatData.groupName : getOtherMemberName(currentChatData);
   document.getElementById("chatName").textContent = title;
   document.getElementById("chatSub").textContent = isGroup ? `${currentChatData.members.length} anggota` : "";
   const avatarEl = document.getElementById("chatAvatar");
-  avatarEl.style.background = colorFromString(title);
-  avatarEl.textContent = initialsOf(title);
+  setAvatarEl(avatarEl, title, isGroup ? "" : getOtherMemberPhoto(currentChatData));
 
   if (unsubMessages) unsubMessages();
   const q = query(collection(db, "chats", chatId, "messages"), orderBy("timestamp", "asc"));
   unsubMessages = onSnapshot(q, (snapshot) => {
-    renderMessages(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    const msgs = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderMessages(msgs);
+    markMessagesRead(chatId, msgs);
   }, (err) => {
     console.error("Gagal memuat pesan:", err);
   });
+}
+
+// Tandai pesan masuk sebagai "dibaca" begitu chat ini sedang dibuka
+async function markMessagesRead(chatId, msgs) {
+  const unread = msgs.filter((m) => m.senderId !== currentUser.uid && !(m.readBy || []).includes(currentUser.uid));
+  if (unread.length === 0) return;
+  try {
+    await Promise.all(
+      unread.map((m) => updateDoc(doc(db, "chats", chatId, "messages", m.id), { readBy: arrayUnion(currentUser.uid) }))
+    );
+  } catch (err) {
+    console.error("Gagal menandai pesan dibaca:", err);
+  }
+}
+
+// Centang status untuk pesan keluar: ✓ terkirim, ✓✓ (hijau) sudah dibaca.
+// Untuk grup, dianggap "dibaca" kalau semua anggota lain sudah membaca.
+function messageStatusHtml(m) {
+  if (!m.timestamp) return "";
+  const readBy = m.readBy || [];
+  let isRead = false;
+  if (currentChatData.type === "group") {
+    const others = currentChatData.members.filter((uid) => uid !== currentUser.uid);
+    isRead = others.length > 0 && others.every((uid) => readBy.includes(uid));
+  } else {
+    const otherUid = currentChatData.members.find((uid) => uid !== currentUser.uid);
+    isRead = readBy.includes(otherUid);
+  }
+  return `<span class="status-tick ${isRead ? "read" : ""}">${isRead ? "✓✓" : "✓"}</span>`;
 }
 
 function renderMessages(msgs) {
@@ -237,6 +308,7 @@ function renderMessages(msgs) {
     const row = document.createElement("div");
     row.className = "bubble-row " + (isOut ? "out" : "in");
     row.innerHTML = `
+      ${showSender ? avatarHtmlStr(m.senderName || "?", currentChatData.memberPhotos && currentChatData.memberPhotos[m.senderId], "avatar-sm") : ""}
       <div class="bubble ${isOut ? "out" : "in"}">
         ${showSender ? `<div class="sender">${escapeHtml(m.senderName || "")}</div>` : ""}
         ${m.imageUrl ? `
@@ -246,7 +318,7 @@ function renderMessages(msgs) {
           </div>
         ` : ""}
         ${m.text ? `<div class="txt">${escapeHtml(m.text)}</div>` : ""}
-        <div class="time">${m.timestamp ? formatTime(m.timestamp) : "Mengirim..."}</div>
+        <div class="time">${m.timestamp ? formatTime(m.timestamp) : "Mengirim..."}${isOut ? messageStatusHtml(m) : ""}</div>
       </div>
     `;
     el.appendChild(row);
@@ -261,7 +333,8 @@ async function pushMessage({ text, imageUrl }) {
   const msgData = {
     senderId: currentUser.uid,
     senderName: currentUser.displayName || currentUser.email,
-    timestamp: serverTimestamp()
+    timestamp: serverTimestamp(),
+    readBy: []
   };
   if (text) msgData.text = text;
   if (imageUrl) msgData.imageUrl = imageUrl;
@@ -354,6 +427,10 @@ document.getElementById("newChatConfirm").addEventListener("click", async () => 
         [currentUser.uid]: currentUser.displayName || currentUser.email,
         [otherUser.uid]: otherUser.displayName
       },
+      memberPhotos: {
+        [currentUser.uid]: myProfile.photoURL || "",
+        [otherUser.uid]: otherUser.photoURL || ""
+      },
       lastMessage: "",
       lastMessageTime: serverTimestamp(),
       createdAt: serverTimestamp(),
@@ -421,7 +498,7 @@ async function addGroupMember() {
     return;
   }
   const u = snap.docs[0].data();
-  groupMembers.push({ uid: u.uid, name: u.displayName, email: u.email });
+  groupMembers.push({ uid: u.uid, name: u.displayName, email: u.email, photoURL: u.photoURL || "" });
   emailInput.value = "";
   renderGroupChips();
 }
@@ -443,13 +520,15 @@ document.getElementById("newGroupConfirm").addEventListener("click", async () =>
 
   try {
     const memberNames = { [currentUser.uid]: currentUser.displayName || currentUser.email };
-    groupMembers.forEach((m) => { memberNames[m.uid] = m.name; });
+    const memberPhotos = { [currentUser.uid]: myProfile.photoURL || "" };
+    groupMembers.forEach((m) => { memberNames[m.uid] = m.name; memberPhotos[m.uid] = m.photoURL || ""; });
 
     const newChat = {
       type: "group",
       groupName: name,
       members: [currentUser.uid, ...groupMembers.map((m) => m.uid)],
       memberNames,
+      memberPhotos,
       lastMessage: "Grup dibuat",
       lastMessageTime: serverTimestamp(),
       createdAt: serverTimestamp(),
@@ -468,7 +547,56 @@ document.getElementById("newGroupConfirm").addEventListener("click", async () =>
 });
 
 // ============================================================================
-// PREVIEW FOTO + NAVIGASI MOBILE
+// PROFIL SAYA (FOTO PROFIL)
+// ============================================================================
+
+const editProfileModal = document.getElementById("editProfileModal");
+let pendingProfilePhoto = null;
+
+document.getElementById("myAvatarBtn").addEventListener("click", () => {
+  pendingProfilePhoto = null;
+  hideModalError("editProfileError");
+  setAvatarEl(document.getElementById("profilePreview"), currentUser.displayName || currentUser.email, myProfile.photoURL);
+  editProfileModal.classList.add("show");
+});
+document.getElementById("editProfileCancel").addEventListener("click", () => editProfileModal.classList.remove("show"));
+editProfileModal.addEventListener("click", (e) => { if (e.target === editProfileModal) editProfileModal.classList.remove("show"); });
+
+document.getElementById("profilePhotoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    // Foto profil dikompres lebih kecil dari foto chat karena cuma ditampilkan sebagai avatar
+    pendingProfilePhoto = await compressImage(file, 240, 0.72);
+    setAvatarEl(document.getElementById("profilePreview"), currentUser.displayName || currentUser.email, pendingProfilePhoto);
+  } catch (err) {
+    console.error("Gagal memproses foto:", err);
+    showModalError("editProfileError", "Gagal memproses foto.");
+  }
+});
+
+document.getElementById("editProfileSave").addEventListener("click", async () => {
+  if (!pendingProfilePhoto) { editProfileModal.classList.remove("show"); return; }
+  const btn = document.getElementById("editProfileSave");
+  btn.disabled = true;
+  btn.textContent = "Menyimpan...";
+  try {
+    await setDoc(doc(db, "users", currentUser.uid), { photoURL: pendingProfilePhoto }, { merge: true });
+    myProfile.photoURL = pendingProfilePhoto;
+    setAvatarEl(document.getElementById("myAvatar"), currentUser.displayName || currentUser.email, myProfile.photoURL);
+    editProfileModal.classList.remove("show");
+  } catch (err) {
+    console.error(err);
+    showModalError("editProfileError", "Gagal menyimpan foto. Coba lagi.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Simpan";
+  }
+});
+
+// ============================================================================
+// PREVIEW FOTO + NAVIGASI MOBILE (tombol back HP kembali ke daftar chat)
 // ============================================================================
 
 const imagePreviewModal = document.getElementById("imagePreviewModal");
@@ -479,6 +607,33 @@ function openImagePreview(url) {
 document.getElementById("imagePreviewClose").addEventListener("click", () => imagePreviewModal.classList.remove("show"));
 imagePreviewModal.addEventListener("click", (e) => { if (e.target === imagePreviewModal) imagePreviewModal.classList.remove("show"); });
 
-document.getElementById("backBtn").addEventListener("click", () => {
+function isMobileLayout() {
+  return window.matchMedia("(max-width: 760px)").matches;
+}
+
+function closeChatView() {
   document.getElementById("appShell").classList.remove("chat-open");
+}
+
+// Setiap buka chat di layar HP, dorong satu state history baru.
+// Jadi tombol back HP akan mem-"pop" state ini dulu (nutup chat, balik ke daftar)
+// sebelum benar-benar keluar dari halaman — sama seperti perilaku WhatsApp.
+function pushChatHistoryState() {
+  if (isMobileLayout() && !(history.state && history.state.kabariChatOpen)) {
+    history.pushState({ kabariChatOpen: true }, "", location.pathname + location.search);
+  }
+}
+
+window.addEventListener("popstate", (e) => {
+  if (!e.state || !e.state.kabariChatOpen) {
+    closeChatView();
+  }
+});
+
+document.getElementById("backBtn").addEventListener("click", () => {
+  if (isMobileLayout() && history.state && history.state.kabariChatOpen) {
+    history.back();
+  } else {
+    closeChatView();
+  }
 });
