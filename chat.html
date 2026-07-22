@@ -14,7 +14,10 @@
   <aside class="sidebar">
     <div class="sidebar-top">
       <div class="who">
-        <div class="avatar" id="myAvatar">?</div>
+        <button class="avatar-edit-btn" id="myAvatarBtn" type="button" title="Ubah foto profil">
+          <div class="avatar" id="myAvatar">?</div>
+          <span class="avatar-edit-badge">✎</span>
+        </button>
         <div class="wordmark">Kabari</div>
       </div>
       <button class="icon-btn" id="logoutBtn" title="Keluar">⏻</button>
@@ -112,6 +115,24 @@
     <img id="imagePreviewImg" style="width:100%; border-radius:12px; display:block;">
     <div class="modal-actions">
       <button class="btn-secondary" id="imagePreviewClose">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: EDIT PROFIL ================= -->
+<div class="modal-backdrop" id="editProfileModal">
+  <div class="modal">
+    <h3>Foto profil</h3>
+    <p class="modal-sub">Foto ini akan terlihat oleh teman chat kamu.</p>
+    <div class="profile-photo-picker">
+      <div class="avatar avatar-lg" id="profilePreview">?</div>
+      <label class="btn-secondary profile-upload-label" for="profilePhotoInput">Pilih foto</label>
+      <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;">
+    </div>
+    <div class="modal-error" id="editProfileError"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="editProfileCancel">Batal</button>
+      <button class="btn-primary" id="editProfileSave">Simpan</button>
     </div>
   </div>
 </div>
