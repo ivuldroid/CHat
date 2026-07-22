@@ -405,13 +405,43 @@ input:focus-visible,
   flex-shrink: 0;
 }
 
+.chat-item .row2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
 .chat-item .preview {
   font-size: 13px;
   color: var(--slate);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-item .preview.unread {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.unread-badge {
+  flex-shrink: 0;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--leaf);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .group-avatar {
