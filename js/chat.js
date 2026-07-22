@@ -17,6 +17,7 @@ let currentChatData = null;
 let unsubMessages = null;
 let allChatsCache = [];
 let groupMembers = [];
+let storiesCache = [];
 
 // ============================================================================
 // HELPERS
@@ -165,6 +166,7 @@ onAuthStateChanged(auth, async (user) => {
   const name = user.displayName || user.email;
   await loadMyProfile(name);
   listenToChats();
+  listenToStories();
 });
 
 document.getElementById("logoutBtn").addEventListener("click", async () => {
@@ -186,6 +188,7 @@ function listenToChats() {
     checkForNewMessageNotifications(newChats);
     allChatsCache = newChats;
     renderChatList();
+    renderStoryRail();
   }, (err) => {
     console.error("Gagal memuat daftar chat:", err);
   });
@@ -328,7 +331,7 @@ async function markMessagesRead(chatId, msgs) {
   }
 }
 
-// Centang status untuk pesan keluar: ✓ terkirim, ✓✓ (hijau) sudah dibaca.
+// Centang status untuk pesan keluar: ✓✓ merah = terkirim tapi belum dibaca, ✓✓ hijau = sudah dibaca.
 // Untuk grup, dianggap "dibaca" kalau semua anggota lain sudah membaca.
 function messageStatusHtml(m) {
   if (!m.timestamp) return "";
@@ -341,7 +344,7 @@ function messageStatusHtml(m) {
     const otherUid = currentChatData.members.find((uid) => uid !== currentUser.uid);
     isRead = readBy.includes(otherUid);
   }
-  return `<span class="status-tick ${isRead ? "read" : ""}">${isRead ? "✓✓" : "✓"}</span>`;
+  return `<span class="status-tick ${isRead ? "read" : "unread"}">✓✓</span>`;
 }
 
 function renderMessages(msgs) {
@@ -365,6 +368,12 @@ function renderMessages(msgs) {
       ${showSender ? avatarHtmlStr(m.senderName || "?", currentChatData.memberPhotos && currentChatData.memberPhotos[m.senderId], "avatar-sm") : ""}
       <div class="bubble ${isOut ? "out" : "in"}">
         ${showSender ? `<div class="sender">${escapeHtml(m.senderName || "")}</div>` : ""}
+        ${m.storyReply ? `
+          <div class="story-reply-quote">
+            <img src="${m.storyReply.storyImageUrl}" alt="Story">
+            <span>Membalas story</span>
+          </div>
+        ` : ""}
         ${m.imageUrl ? `
           <div style="position: relative; margin-bottom: 6px;">
             <img src="${m.imageUrl}" alt="Foto" data-full="${m.imageUrl}" 
@@ -733,24 +742,293 @@ document.getElementById("viewProfileClose").addEventListener("click", () => view
 viewProfileModal.addEventListener("click", (e) => { if (e.target === viewProfileModal) viewProfileModal.classList.remove("show"); });
 
 // ============================================================================
+// STORY
+// ============================================================================
+
+// "Kontak" = diri sendiri + siapa pun yang sudah pernah kamu ajak chat (1-on-1 atau grup).
+// Story orang di luar itu tidak ditampilkan di rail.
+function getMyContactUids() {
+  const uids = new Set([currentUser.uid]);
+  allChatsCache.forEach((chat) => {
+    (chat.members || []).forEach((uid) => uids.add(uid));
+  });
+  return uids;
+}
+
+function listenToStories() {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const q = query(
+    collection(db, "stories"),
+    where("createdAt", ">", since),
+    orderBy("createdAt", "desc")
+  );
+  onSnapshot(q, (snapshot) => {
+    storiesCache = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderStoryRail();
+  }, (err) => {
+    console.error("Gagal memuat story:", err);
+  });
+}
+
+function renderStoryRail() {
+  const rail = document.getElementById("storyRail");
+  if (!rail) return;
+  const contactUids = getMyContactUids();
+  const byUser = {};
+  storiesCache.forEach((s) => {
+    if (!contactUids.has(s.userId)) return;
+    (byUser[s.userId] = byUser[s.userId] || []).push(s);
+  });
+  Object.keys(byUser).forEach((uid) => byUser[uid].sort((a, b) => toDate(a.createdAt) - toDate(b.createdAt)));
+
+  const myStories = byUser[currentUser.uid] || [];
+  const otherUids = Object.keys(byUser).filter((uid) => uid !== currentUser.uid);
+
+  let html = `
+    <div class="story-tile" id="storyTileMine">
+      <div class="story-ring ${myStories.length ? "has-story" : "no-story"}">
+        ${avatarHtmlStr(currentUser.displayName || currentUser.email, myProfile.photoURL)}
+        ${myStories.length ? `<span class="story-add-badge" id="storyAddBadge">+</span>` : ""}
+      </div>
+      <div class="story-tile-label">Story Anda</div>
+    </div>
+  `;
+  otherUids.forEach((uid) => {
+    const list = byUser[uid];
+    const name = list[0].userName || "Pengguna";
+    const allViewed = list.every((s) => (s.viewedBy || []).includes(currentUser.uid));
+    html += `
+      <div class="story-tile" data-uid="${uid}">
+        <div class="story-ring ${allViewed ? "viewed" : "unviewed"}">
+          ${avatarHtmlStr(name, list[0].userPhoto)}
+        </div>
+        <div class="story-tile-label">${escapeHtml(name.split(" ")[0])}</div>
+      </div>
+    `;
+  });
+  rail.innerHTML = html;
+
+  document.getElementById("storyTileMine").addEventListener("click", (e) => {
+    if (myStories.length === 0 || e.target.id === "storyAddBadge") {
+      document.getElementById("storyPhotoInput").click();
+    } else {
+      openStoryViewer(myStories, 0, true);
+    }
+  });
+  rail.querySelectorAll(".story-tile[data-uid]").forEach((tile) => {
+    tile.addEventListener("click", () => openStoryViewer(byUser[tile.dataset.uid], 0, false));
+  });
+}
+
+// ---- Posting story baru ----
+let pendingStoryPhoto = null;
+const postStoryModal = document.getElementById("postStoryModal");
+
+document.getElementById("storyPhotoInput").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    pendingStoryPhoto = await compressImage(file, 780, 0.68);
+    document.getElementById("postStoryPreview").src = pendingStoryPhoto;
+    document.getElementById("postStoryCaption").value = "";
+    hideModalError("postStoryError");
+    postStoryModal.classList.add("show");
+  } catch (err) {
+    console.error("Gagal memproses foto story:", err);
+    alert("Gagal memproses foto: " + err.message);
+  }
+});
+document.getElementById("postStoryCancel").addEventListener("click", () => postStoryModal.classList.remove("show"));
+postStoryModal.addEventListener("click", (e) => { if (e.target === postStoryModal) postStoryModal.classList.remove("show"); });
+
+document.getElementById("postStoryConfirm").addEventListener("click", async () => {
+  if (!pendingStoryPhoto) return;
+  const btn = document.getElementById("postStoryConfirm");
+  btn.disabled = true;
+  btn.textContent = "Membagikan...";
+  try {
+    await addDoc(collection(db, "stories"), {
+      userId: currentUser.uid,
+      userName: currentUser.displayName || currentUser.email,
+      userPhoto: myProfile.photoURL || "",
+      imageUrl: pendingStoryPhoto,
+      caption: document.getElementById("postStoryCaption").value.trim().slice(0, 120),
+      createdAt: serverTimestamp(),
+      viewedBy: []
+    });
+    postStoryModal.classList.remove("show");
+    pendingStoryPhoto = null;
+  } catch (err) {
+    console.error(err);
+    showModalError("postStoryError", "Gagal membagikan story. Coba lagi.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Bagikan";
+  }
+});
+
+// ---- Viewer story full-screen ----
+let activeStoryList = [];
+let activeStoryIndex = 0;
+let activeStoryIsMine = false;
+
+function openStoryViewer(list, startIndex, isMine) {
+  activeStoryList = list;
+  activeStoryIndex = startIndex;
+  activeStoryIsMine = isMine;
+  document.getElementById("storyReplyForm").style.display = isMine ? "none" : "flex";
+  renderActiveStory();
+  document.getElementById("storyViewer").classList.add("show");
+}
+
+function renderActiveStory() {
+  const story = activeStoryList[activeStoryIndex];
+  if (!story) { closeStoryViewer(); return; }
+  setAvatarEl(document.getElementById("storyViewerAvatar"), story.userName, story.userPhoto);
+  document.getElementById("storyViewerName").textContent = activeStoryIsMine ? "Story Anda" : (story.userName || "Pengguna");
+  document.getElementById("storyViewerTime").textContent = formatTime(story.createdAt);
+  document.getElementById("storyViewerImg").src = story.imageUrl;
+  document.getElementById("storyViewerCaption").textContent = story.caption || "";
+  renderStoryProgressBar();
+  if (!activeStoryIsMine && !(story.viewedBy || []).includes(currentUser.uid)) {
+    markStoryViewed(story);
+  }
+}
+
+function renderStoryProgressBar() {
+  document.getElementById("storyProgress").innerHTML = activeStoryList
+    .map((_, i) => `<div class="story-progress-seg ${i < activeStoryIndex ? "done" : i === activeStoryIndex ? "active" : ""}"></div>`)
+    .join("");
+}
+
+async function markStoryViewed(story) {
+  try {
+    await updateDoc(doc(db, "stories", story.id), { viewedBy: arrayUnion(currentUser.uid) });
+    story.viewedBy = [...(story.viewedBy || []), currentUser.uid];
+  } catch (err) {
+    console.error("Gagal menandai story dilihat:", err);
+  }
+}
+
+function closeStoryViewer() {
+  document.getElementById("storyViewer").classList.remove("show");
+  document.getElementById("storyViewerImg").src = "";
+  document.getElementById("storyReplyInput").value = "";
+}
+
+document.getElementById("storyViewerClose").addEventListener("click", closeStoryViewer);
+document.getElementById("storyTapPrev").addEventListener("click", () => {
+  if (activeStoryIndex > 0) { activeStoryIndex--; renderActiveStory(); } else { closeStoryViewer(); }
+});
+document.getElementById("storyTapNext").addEventListener("click", () => {
+  if (activeStoryIndex < activeStoryList.length - 1) { activeStoryIndex++; renderActiveStory(); } else { closeStoryViewer(); }
+});
+
+// ---- Balas story -> otomatis jadi pesan chat, tag ke story tsb ----
+
+// Cari chat 1-on-1 yang sudah ada dengan orang ini, atau buat baru kalau belum ada
+async function getOrCreateChatWith(otherUid, otherName, otherPhoto) {
+  const existing = allChatsCache.find((c) => c.type === "1on1" && c.members.includes(otherUid));
+  if (existing) return existing;
+  const newChat = {
+    type: "1on1",
+    members: [currentUser.uid, otherUid],
+    memberNames: {
+      [currentUser.uid]: currentUser.displayName || currentUser.email,
+      [otherUid]: otherName
+    },
+    memberPhotos: {
+      [currentUser.uid]: myProfile.photoURL || "",
+      [otherUid]: otherPhoto || ""
+    },
+    lastMessage: "",
+    lastMessageTime: serverTimestamp(),
+    createdAt: serverTimestamp(),
+    createdBy: currentUser.uid
+  };
+  const docRef = await addDoc(collection(db, "chats"), newChat);
+  const created = { id: docRef.id, ...newChat, lastMessageTime: new Date() };
+  allChatsCache.push(created);
+  return created;
+}
+
+// Dipisah dari pushMessage() supaya tidak mengubah currentChatId/currentChatData yang sedang aktif —
+// balas story bisa terjadi sementara user lagi buka chat lain di belakang layar.
+async function sendStoryReply(chat, text, story) {
+  const msgData = {
+    senderId: currentUser.uid,
+    senderName: currentUser.displayName || currentUser.email,
+    timestamp: serverTimestamp(),
+    readBy: [],
+    text,
+    storyReply: { storyId: story.id, storyImageUrl: story.imageUrl }
+  };
+  await addDoc(collection(db, "chats", chat.id, "messages"), msgData);
+  const chatUpdates = {
+    lastMessage: `Membalas story: ${text}`,
+    lastMessageTime: serverTimestamp()
+  };
+  chat.members.forEach((uid) => {
+    if (uid !== currentUser.uid) chatUpdates[`unreadCount.${uid}`] = increment(1);
+  });
+  await updateDoc(doc(db, "chats", chat.id), chatUpdates);
+}
+
+document.getElementById("storyReplyForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const story = activeStoryList[activeStoryIndex];
+  const input = document.getElementById("storyReplyInput");
+  const text = input.value.trim();
+  if (!text || !story || activeStoryIsMine) return;
+  const sendBtn = document.getElementById("storyReplySend");
+  sendBtn.disabled = true;
+  try {
+    const chat = await getOrCreateChatWith(story.userId, story.userName, story.userPhoto);
+    await sendStoryReply(chat, text, story);
+    input.value = "";
+  } catch (err) {
+    console.error("Gagal mengirim balasan story:", err);
+    alert("Gagal mengirim balasan. Coba lagi.");
+  } finally {
+    sendBtn.disabled = false;
+  }
+});
+
+// ============================================================================
 // NOTIFIKASI SUARA + POP UP
 // ============================================================================
 
-// Bunyi "ding" pendek dibuat langsung lewat Web Audio API (tidak perlu file suara)
-function playNotifSound() {
+// Bunyi "ding" pendek dibuat langsung lewat Web Audio API (tidak perlu file suara).
+// AudioContext-nya dibuat sekali saja di sentuhan pertama (lihat unlockNotifAudio di bawah) —
+// browser modern MEMBLOKIR suara dari AudioContext baru yang dibuat di luar gesture pengguna
+// (misal dari callback onSnapshot), makanya sebelumnya suaranya tidak pernah keluar.
+let notifAudioCtx = null;
+
+function unlockNotifAudio() {
+  if (notifAudioCtx) return;
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const now = ctx.currentTime;
+    notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (err) {
+    console.error("Web Audio tidak didukung di browser ini:", err);
+  }
+}
+
+function playNotifSound() {
+  if (!notifAudioCtx) return;
+  try {
+    if (notifAudioCtx.state === "suspended") notifAudioCtx.resume();
+    const now = notifAudioCtx.currentTime;
     [880, 660].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const osc = notifAudioCtx.createOscillator();
+      const gain = notifAudioCtx.createGain();
       osc.type = "sine";
       osc.frequency.value = freq;
       const start = now + i * 0.12;
       gain.gain.setValueAtTime(0, start);
       gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.25);
-      osc.connect(gain).connect(ctx.destination);
+      osc.connect(gain).connect(notifAudioCtx.destination);
       osc.start(start);
       osc.stop(start + 0.3);
     });
@@ -759,7 +1037,7 @@ function playNotifSound() {
   }
 }
 
-// Minta izin notifikasi browser di sentuhan pertama pengguna (butuh user-gesture)
+// Minta izin notifikasi browser + unlock audio di sentuhan pertama pengguna (butuh user-gesture)
 let notifPermissionAsked = false;
 async function ensureNotifPermission() {
   if (!("Notification" in window)) return;
@@ -773,6 +1051,7 @@ async function ensureNotifPermission() {
 }
 document.addEventListener("click", function onFirstAppClick() {
   document.removeEventListener("click", onFirstAppClick);
+  unlockNotifAudio();
   ensureNotifPermission();
 }, { once: true });
 
